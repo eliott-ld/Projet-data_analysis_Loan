@@ -1,0 +1,142 @@
+---
+title: "Projet"
+author: "eliott_ld"
+date: "2025-03-28"
+output: html_document
+---
+
+```{r}
+library(FactoMineR)
+library(cluster)
+```
+
+```{r}
+
+data=read.csv2('train.csv', row.names=1, sep=",")
+data
+dim(data)
+
+```
+
+```{r}
+
+summary(data)
+```
+
+```{r}
+
+data_quanti <- data[, sapply(data, is.numeric)]
+sum(is.na(data_quanti))  # Count missing values
+data_quanti=na.omit(data_quanti)
+sum(is.na(data_quanti))  # Count missing values
+
+data_quanti
+pairs(data_quanti)
+```
+
+```{r}
+length(data$ApplicantIncome)
+length(data$CoapplicantIncome)
+
+data$CoapplicantIncome <- as.numeric(as.character(data$CoapplicantIncome))
+
+couple_income = data$ApplicantIncome + data$CoapplicantIncome
+
+print('salaire moyen des couples :')
+mean(couple_income)
+barplot(couple_income)
+
+```
+
+Premiere approximation : on voit que la variable loan correspond environ a 50 fois le salaire du couple emprunteur.
+
+```{r}
+
+loan=data$LoanAmount
+x=couple_income
+plot(couple_income, loan)
+lines(x, x/50, col='red')
+```
+
+\
+
+```{r}
+
+education = data$Education
+plot(education, couple_income)
+```
+
+# **CAH**
+
+```{r}
+data2=scale(data_quanti, center = TRUE, scale = TRUE)
+dist_matrix = dist(data2)
+
+# Classification Ascendante Hiérarchique (CAH)
+hc <- hclust(dist_matrix, method = "ward.D2")
+
+plot(hc, labels = FALSE, main = "Dendrogramme de la CAH")
+rect.hclust(hc , k=4)
+```
+
+```{r}
+barplot(hc$height)
+groupes.cah <- cutree(hc, 4)
+
+
+K=4
+for (i in 1:K)
+{ cat("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& groupe", i,"\n")
+I=which(groupes.cah==i)
+print(rownames(data_quanti)[I]) }
+```
+
+```{r}
+
+Means_groupes <- matrix(NA, nrow=K, ncol=dim(data_quanti)[2])
+colnames(Means_groupes)=colnames(data_quanti)
+rownames(Means_groupes) =1:K
+for (i in 1:K) Means_groupes[i,]<- colMeans(data_quanti[groupes.cah==i,])
+round(Means_groupes)
+
+table(groupes.cah)
+```
+
+```{r}
+aggregate(data_quanti, by=list(groupes.cah), FUN=mean)
+```
+
+```{r}
+
+data2 = data_quanti
+data2 <- cbind(data2, Gender = data$Gender)
+data2
+res <- PCA(data2, quali.sup = 5 )
+```
+
+On remarque sur le cercle PCA que les variables Credit_History et Loan_amount_Term sont corrélées. De meme pour LoanAmount et ApplicantIncome
+
+Interprétation :
+
+Cela semble cohérent :plus un emprunteur a un revenu élevé, plus son pret peut etre grand. Meilleur est son Credit_hisotry (score) plus il peut emprunter a long term.
+
+je vais regarder si il y a une difference significative entre loan amount MALE vs Female
+
+# PARTIE AFC / ACM
+
+```{r}
+data=data_quanti
+
+sum(is.na(data))  # Count missing values
+data <- na.omit(data)
+sum(data < 0, na.rm = TRUE)    # Count negative values
+all(data >= 0)  # Should return TRUE
+
+
+data_Income_vs_Amount= data[,c(1,2)]
+data_Income_vs_Amount
+chisq.test(data_Income_vs_Amount)
+
+```
+
+On rejette le test du Khi 2, donc la variable Income et Loan_amount ne sont pas indépendantes
